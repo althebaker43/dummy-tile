@@ -1,0 +1,70 @@
+diff --git a/build.sbt b/build.sbt
+index 9d0a7ac0..780a7fe6 100644
+--- a/build.sbt
++++ b/build.sbt
+@@ -145,7 +145,7 @@ lazy val chipyard = (project in file("generators/chipyard"))
+   .dependsOn(testchipip, rocketchip, boom, hwacha, sifive_blocks, sifive_cache, iocell,
+     sha3, // On separate line to allow for cleaner tutorial-setup patches
+     dsptools, `rocket-dsp-utils`,
+-    gemmini, icenet, tracegen, cva6, nvdla, sodor, ibex, fft_generator)
++    gemmini, icenet, tracegen, cva6, nvdla, sodor, ibex, fft_generator, dummy_tile)
+   .settings(libraryDependencies ++= rocketLibDeps.value)
+   .settings(commonSettings)
+ 
+@@ -278,3 +278,8 @@ lazy val fpga_shells = (project in file("./fpga/fpga-shells"))
+ lazy val fpga_platforms = (project in file("./fpga"))
+   .dependsOn(chipyard, fpga_shells)
+   .settings(commonSettings)
++
++lazy val dummy_tile = (project in file("generators/dummy-tile"))
++  .dependsOn(rocketchip)
++  .settings(libraryDependencies ++= rocketLibDeps.value)
++  .settings(commonSettings)
+diff --git a/generators/chipyard/src/main/scala/config/RocketConfigs.scala b/generators/chipyard/src/main/scala/config/RocketConfigs.scala
+index b1719773..e0065b9e 100644
+--- a/generators/chipyard/src/main/scala/config/RocketConfigs.scala
++++ b/generators/chipyard/src/main/scala/config/RocketConfigs.scala
+@@ -253,3 +253,7 @@ class MulticlockAXIOverSerialConfig extends Config(
+   new freechips.rocketchip.subsystem.WithNBigCores(2) ++
+   new chipyard.config.AbstractConfig)
+ // DOC include end: MulticlockAXIOverSerialConfig
++
++class DummyConfig extends Config(
++  new dummy_tile.WithNDummyCores(1) ++
++    new chipyard.config.AbstractConfig)
+diff --git a/sims/common-sim-flags.mk b/sims/common-sim-flags.mk
+index 7c6c580d..06b1a057 100644
+--- a/sims/common-sim-flags.mk
++++ b/sims/common-sim-flags.mk
+@@ -7,15 +7,15 @@ SIM_CXXFLAGS = \
+ 	$(CXXFLAGS) \
+ 	$(SIM_OPT_CXXFLAGS) \
+ 	-std=c++11 \
+-	-I$(RISCV)/include \
++	-I$(RISCV) \
+ 	-I$(dramsim_dir) \
+ 	-I$(build_dir) \
+ 	$(EXTRA_SIM_CXXFLAGS)
+ 
+ SIM_LDFLAGS = \
+ 	$(LDFLAGS) \
+-	-L$(RISCV)/lib \
+-	-Wl,-rpath,$(RISCV)/lib \
++	-L$(RISCV) \
++	-Wl,-rpath,$(RISCV) \
+ 	-L$(sim_dir) \
+ 	-L$(dramsim_dir) \
+ 	-lfesvr \
+diff --git a/variables.mk b/variables.mk
+index 7025d89e..379d4c99 100644
+--- a/variables.mk
++++ b/variables.mk
+@@ -69,7 +69,7 @@ ifeq ($(SUB_PROJECT),chipyard)
+ 	MODEL             ?= TestHarness
+ 	VLOG_MODEL        ?= TestHarness
+ 	MODEL_PACKAGE     ?= $(SBT_PROJECT)
+-	CONFIG            ?= RocketConfig
++	CONFIG            ?= DummyConfig
+ 	CONFIG_PACKAGE    ?= $(SBT_PROJECT)
+ 	GENERATOR_PACKAGE ?= $(SBT_PROJECT)
+ 	TB                ?= TestDriver
