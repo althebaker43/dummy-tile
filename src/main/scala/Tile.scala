@@ -18,6 +18,7 @@ import freechips.rocketchip.prci.{ClockSinkParameters}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.subsystem.RocketCrossingParams
 import freechips.rocketchip.subsystem.CanAttachTile
+import testchipip.TLHelper
 
 case class DummyCoreParams(
   bootFreqHz: BigInt = 0,
@@ -99,9 +100,10 @@ class DummyTile(
   lookup : LookupByHartIdImpl,
   q : Parameters)
     extends BaseTile(myParams, crossing, lookup, q)
-  with SinksExternalInterrupts
-  with SourcesExternalNotifications
-  with HasHellaCache
+    with SinksExternalInterrupts
+    with SourcesExternalNotifications
+    with HasHellaCache
+    with HasTileParameters
 {
   // Private constructor ensures altered LazyModule.p is used implicitly
   def this(params: DummyTileParams, crossing: TileCrossingParamsLike, lookup: LookupByHartIdImpl)(implicit p: Parameters) =
@@ -123,6 +125,8 @@ class DummyTile(
   icache.hartIdSinkNodeOpt.map { _ := hartIdNexusNode }
   icache.mmioAddressPrefixSinkNodeOpt.map { _ := mmioAddressPrefixNexusNode }
 
+  nDCachePorts += 1
+
   // Required entry of CPU device in the device tree for interrupt purpose
   val cpuDevice: SimpleDevice = new SimpleDevice("cpu", Seq("botbakery,dummy-cpu", "riscv")) {
     override def parent = Some(ResourceAnchors.cpus)
@@ -140,17 +144,21 @@ class DummyTile(
   }
 }
 
-class DummyTileImp(outer : DummyTile) extends BaseTileModuleImp(outer) {
-
+class DummyTileImp(outer : DummyTile) extends BaseTileModuleImp(outer)
+    with HasHellaCacheModule
+{
   Annotated.params(this, outer.myParams)
 
-  val iReg = RegNext(outer.icache.module.io)
-  val dReg = RegNext(outer.dcache.module.io.cpu)
+  val dCacheIO = Wire(new HellaCacheBundle(outer.dcache))
+  dCacheIO <> outer.dcache.module.io.cpu
+
+  val iCacheIO = Wire(Decoupled(new ICacheReq))
+  iCacheIO <> outer.icache.module.io.req
 
   // Connect interrupts
   val debug_i = Wire(Bool())
   val mtip_i = Wire(Bool())
-  val int_bundle = new TileInterrupts()
+  val int_bundle = Wire(new TileInterrupts())
   outer.decodeCoreInterrupts(int_bundle)
   debug_i := int_bundle.debug
   mtip_i := int_bundle.meip & int_bundle.msip & int_bundle.mtip
