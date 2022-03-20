@@ -149,16 +149,36 @@ class DummyTileImp(outer : DummyTile) extends BaseTileModuleImp(outer)
 {
   Annotated.params(this, outer.myParams)
 
-  val dCacheIO = Wire(new HellaCacheBundle(outer.dcache))
+  val dCacheIO = dontTouch(Wire(new HellaCacheIO))
   dCacheIO <> outer.dcache.module.io.cpu
+  dCacheIO.req.valid := false.B
+  dCacheIO.req.bits.addr := 0.U
+  dCacheIO.req.bits.data := 0.U
+  dCacheIO.req.bits.mask := 0.U
+  dCacheIO.req.bits.tag := 0.U
+  dCacheIO.req.bits.cmd := 0.U
+  dCacheIO.req.bits.size := 0.U
+  dCacheIO.req.bits.signed := false.B
+  dCacheIO.req.bits.dprv := 0.U
+  dCacheIO.req.bits.dv := false.B
+  dCacheIO.req.bits.phys := false.B
+  dCacheIO.req.bits.no_alloc := false.B
+  dCacheIO.req.bits.no_xcpt := false.B
+  dCacheIO.s1_kill := false.B
+  dCacheIO.s1_data.data := 0.U
+  dCacheIO.s1_data.mask := 0.U
+  dCacheIO.s2_kill := false.B
+  dCacheIO.keep_clock_enabled := false.B
 
-  val iCacheIO = Wire(Decoupled(new ICacheReq))
+  val iCacheIO = dontTouch(Wire(Decoupled(new ICacheReq)))
   iCacheIO <> outer.icache.module.io.req
+  iCacheIO.valid := false.B
+  iCacheIO.bits.addr := 0.U
 
   // Connect interrupts
-  val debug_i = Wire(Bool())
-  val mtip_i = Wire(Bool())
-  val int_bundle = Wire(new TileInterrupts())
+  val debug_i = dontTouch(Wire(Bool()))
+  val mtip_i = dontTouch(Wire(Bool()))
+  val int_bundle = dontTouch(Wire(new TileInterrupts()))
   outer.decodeCoreInterrupts(int_bundle)
   debug_i := int_bundle.debug
   mtip_i := int_bundle.meip & int_bundle.msip & int_bundle.mtip
